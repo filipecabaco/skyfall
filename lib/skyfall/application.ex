@@ -29,7 +29,7 @@ defmodule Skyfall.Application do
         serving =
           Bumblebee.Text.generation(model_info, tokenizer, generation_config,
             compile: [batch_size: batch_size, sequence_length: sequence_length],
-            stream: false,
+            stream: true,
             defn_options: [compiler: EXLA]
           )
 

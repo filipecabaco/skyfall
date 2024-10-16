@@ -5,11 +5,17 @@ defmodule SkyfallWeb.PageLive do
 
   @impl true
   def mount(_params, _session, socket) do
+    cache =
+      Enum.reduce(Models.models(), %{}, fn %{name: name}, cache ->
+        Map.put(cache, name, %{})
+      end)
+
     socket =
       socket
       |> stream(:chats, [])
       |> assign(:model, nil)
       |> assign(:loading, 0)
+      |> assign(:cache, cache)
 
     {:ok, socket}
   end
@@ -19,18 +25,13 @@ defmodule SkyfallWeb.PageLive do
     ~H"""
     <div class="h-screen w-screen bg-gray-100 flex items-center justify-between p-5 gap-3">
       <div class="grow flex flex-col bg-white rounded-xl border-2 h-full w-full">
-        <div class="grow h-full p-2">
-          <div :for={{id, %{model: model, content: content}} <- @streams.chats} id={id} class="flex flex-col">
-            <div
-              :if={model}
-              class={"bg-green-100 w-1/2 rounded-xl p-2 mb-1 text-gray-800 #{content == :loading && "animate-pulse bg-green-300"} "}
-            >
-              <div :if={content == :loading}><%= model %> is thinking...</div>
-              <div :if={content != :loading}><%= model %>: <%= content %></div>
-            </div>
-            <div :if={!model} class="bg-blue-100 w-1/2 rounded-xl p-2 mb-1 text-gray-800 self-end">
-              <%= content %>
-            </div>
+        <div class="grow h-full p-2 flex flex-col" id="chats" phx-update="stream">
+          <div
+            :for={{dom_id, %{model: model, content: content}} <- @streams.chats}
+            class={"w-1/2 rounded-xl p-2 mb-1 text-gray-800 #{content == :loading && "animate-pulse bg-green-300"} #{if model, do: "bg-green-100", else: "bg-blue-100 self-end"}"}
+            id={dom_id}
+          >
+            <%= if content == :loading, do: "#{model} is thinking", else: "#{if model, do: "#{model}: "}#{content}" %>
           </div>
         </div>
         <div class="grow-0 rounded-b-xl bg-gray-100 h-[5rem] p-2 flex items-center drop-shadow">
@@ -53,7 +54,16 @@ defmodule SkyfallWeb.PageLive do
     socket =
       Enum.reduce(Models.models(), socket, fn %{name: name}, socket ->
         id = Ecto.UUID.generate()
-        Task.async(fn -> {id, name, Nx.Serving.batched_run({:local, name}, text)} end)
+        target_pid = self()
+
+        Task.async(fn ->
+          Nx.Serving.batched_run({:local, name}, text)
+          |> Stream.map(&send(target_pid, {:new_token, %{id: id, model: name, content: &1}}))
+          |> Stream.run()
+
+          name
+        end)
+
         stream_insert(socket, :chats, %{id: id, model: name, content: :loading})
       end)
 
@@ -61,18 +71,35 @@ defmodule SkyfallWeb.PageLive do
   end
 
   @impl true
-  def handle_info({_, {id, name, %{results: %{text: text}}}}, %{assigns: %{loading: loading}} = socket) do
-    Logger.info("Received response for #{name} model with id #{id}")
+  def handle_info({:new_token, new_token}, %{assigns: %{cache: cache}} = socket) do
+    {_, cache} =
+      cache
+      |> Map.get_and_update!(new_token.model, fn current_value ->
+        cond do
+          Map.has_key?(current_value, :id) ->
+            {current_value, Map.update(current_value, :content, "", fn value -> value <> new_token.content end)}
+
+          true ->
+            {current_value, new_token}
+        end
+      end)
+
+    to_insert = Map.get(cache, new_token.model)
 
     socket =
       socket
-      |> stream_insert(:chats, %{id: id, model: name, content: text})
-      |> assign(:loading, loading - 1)
+      |> stream_insert(:chats, to_insert)
+      |> assign(:cache, cache)
 
     {:noreply, socket}
   end
 
-  def handle_info(_msg, socket) do
+  def handle_info({_, name}, %{assigns: %{loading: loading, cache: cache}} = socket) do
+    {_, cache} = Map.get_and_update!(cache, name, fn current_value -> {current_value, %{}} end)
+    socket = socket |> assign(:loading, loading - 1) |> assign(:cache, cache)
+    Logger.info("Model #{name} finished processing")
     {:noreply, socket}
   end
+
+  def handle_info(_, socket), do: {:noreply, socket}
 end
