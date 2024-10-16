@@ -72,7 +72,7 @@ defmodule SkyfallWeb.PageLive do
     {:noreply, socket}
   end
 
-  def handle_info(_, socket) do
+  def handle_info(_msg, socket) do
     {:noreply, socket}
   end
 end
