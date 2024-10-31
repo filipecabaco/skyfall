@@ -51,9 +51,8 @@ defmodule Skyfall.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
-      {:bumblebee, "~> 0.6.0"},
-      {:exla, "~> 0.9.1"},
-      {:observer_cli, "~> 1.7"}
+      {:req, "~>0.5.7"},
+      {:faker, "~> 0.18"}
     ]
   end
 

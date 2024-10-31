@@ -14,11 +14,7 @@ if System.get_env("PHX_SERVER") do
   config :skyfall, SkyfallWeb.Endpoint, server: true
 end
 
-config :skyfall,
-  hf_token: System.fetch_env!("HF_TOKEN"),
-  max_new_tokens: System.get_env("MAX_NEW_TOKENS", "256") |> String.to_integer(),
-  sequence_length: System.get_env("SEQUENCE_LENGTH", "1028") |> String.to_integer(),
-  batch_size: System.get_env("BATCH_SIZE", "1") |> String.to_integer()
+config :skyfall, hf_token: System.fetch_env!("HF_TOKEN")
 
 if config_env() == :prod do
   database_url =

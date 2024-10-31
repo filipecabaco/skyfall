@@ -1,0 +1,15 @@
+<div class="flex h-full">
+  <div
+    class="bg-gray-200 p-3 rounded-xl cursor-pointer flex flex-col gap-3 select-none shadow h-full"
+    phx-click={JS.toggle(to: "#menu_content")}
+  >
+    <span class="hero-home"></span>
+    <div id="menu_content" class="hidden rounded-xl p-3 bg-gray-200">
+      <div class="flex flex-col items-center gap-3">
+        <a href="/" class=" bg-gray-300 hover:bg-gray-100 hover:text-gray-800 p-3 rounded-xl w-[10rem]">Dashboard</a>
+        <a href="/" class=" bg-gray-300 hover:bg-gray-100 hover:text-gray-800 p-3 rounded-xl w-[10rem]">Settings</a>
+      </div>
+    </div>
+  </div>
+  <%= @inner_content %>
+</div>
